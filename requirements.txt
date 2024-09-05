@@ -19,7 +19,7 @@ build==0.10.0
 cachetools==5.0.0
 celery==5.4.0
 celery-progress==0.1.2
-certifi==2021.10.8
+certifi==2024.7.4
 cffi==1.15.0
 channels==3.0.4
 channels-redis==3.4.0
