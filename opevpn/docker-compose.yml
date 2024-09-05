@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun-vpn
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "8888:8888/tcp"  # HTTP proxy port
+      - "8388:8388/tcp"  # Shadowsocks (optional)
+      - "8388:8388/udp"  # Shadowsocks (optional)
+    volumes:
+      - .:/gluetun  # Persistent storage for Gluetun configuration files and server list
+    environment:
+      # VPN configuration (CyberGhost as an example)
+      - VPN_SERVICE_PROVIDER=cyberghost  # Replace with your VPN provider (cyberghost, ivpn, mullvad, etc.)
+      - VPN_TYPE=openvpn                 # Use OpenVPN (or wireguard if supported by the provider)
+      
+      # OpenVPN authentication
+      - OPENVPN_USER=zmwdkM8gPv   # Replace with your VPN username
+      - OPENVPN_PASSWORD=WUAVGBc3BM # Replace with your VPN password
+      
+      # Server selection
+      - SERVER_COUNTRIES=Germany,Netherlands,United States  # List of countries to connect to
+
+      # Other configurations
+      - HTTPPROXY=on                    # Enable HTTP proxy for passing traffic through the VPN
+      - TZ=Europe/Berlin                # Timezone (adjust for your location)
+
+      # Server list updater (update every 24 hours)
+      - UPDATER_PERIOD=24h
+    restart: unless-stopped  # Automatically restart the container if it crashes or stops unexpectedly so make it acordingly

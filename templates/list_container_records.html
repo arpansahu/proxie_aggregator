@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proxy Container Records</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Proxy Container Records</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Container Name</th>
+                <th>Country</th>
+                <th>External Port</th>
+                <th>Start Time</th>
+                <th>Stop Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for container in containers %}
+            <tr>
+                <td>{{ container[0] }}</td>
+                <td>{{ container[1] }}</td>
+                <td>{{ container[2] }}</td>
+                <td>{{ container[3] }}</td>
+                <td>{{ container[4] }}</td>
+                <td>{{ container[5] or "Still Running" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
