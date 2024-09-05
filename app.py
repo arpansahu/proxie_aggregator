@@ -9,8 +9,9 @@ import os
 import atexit
 import uuid
 import sqlite3
-
+import random
 app = Flask(__name__)
+import requests
 
 # Configure Celery
 app.config.update(
@@ -152,11 +153,28 @@ def start_initial_proxies():
 
 # Function to stop and remove all active containers on app shutdown
 def stop_all_proxies():
-    print("Stopping all proxy containers on shutdown...")
-    with pool_lock:
-        for container in container_pool[:]:  # Clone list to avoid modification during iteration
-            stop_and_remove_container(container['name'])
-    print("All proxy containers stopped and removed.")
+    """Stop and remove all active proxy containers on shutdown."""
+    print("Stopping all active proxy containers on shutdown...")
+
+    active_containers = get_container_pool()
+    
+    if not active_containers:
+        print("No active containers found.")
+        return
+    
+    for container in active_containers:
+        container_name = container[0]  # container_name is the first column in the result
+
+        try:
+            # Stop and remove the container
+            stop_and_remove_container(container_name)
+
+            # Record the stop time
+            record_container_stop(container_name)
+        except Exception as e:
+            print(f"Failed to stop and remove container {container_name}: {str(e)}")
+
+    print("All active proxy containers stopped and removed.")
 
 # Register shutdown cleanup function
 atexit.register(stop_all_proxies)
@@ -180,16 +198,18 @@ def start_rotation():
 @app.route('/handle-request', methods=['POST'])
 def handle_request():
     try:
-        # Get an available container
-        with pool_lock:
-            container_info = container_pool[0] if container_pool else None
+        # Get available containers from the database using utils.get_container_pool()
+        container_pool = get_container_pool()
 
-        if not container_info:
+        if not container_pool:
             return jsonify({"error": "No available containers in the pool"}), 500
 
-        proxy_port = container_info["port"]
-        target_url = request.json.get("url")
+        # Randomly select a container from the pool
+        container_info = random.choice(container_pool)
+        container_name = container_info[0]  # container_name is the first column
+        proxy_port = container_info[2]  # external_port is the third column
 
+        target_url = request.json.get("url")
         if not target_url:
             return jsonify({"error": "Missing URL in request"}), 400
 
@@ -198,11 +218,11 @@ def handle_request():
             "https": f"http://localhost:{proxy_port}"
         }
 
+        # Make a request through the proxy
         response = requests.get(target_url, proxies=proxies)
 
-        # Update the last usage time
-        with pool_lock:
-            container_usage[container_info['name']] = time.time()
+        # Optionally update the last usage time in your DB or in-memory data structure
+        # Here you can record usage if necessary
 
         return jsonify({"status": response.status_code, "data": response.text})
 
@@ -217,23 +237,46 @@ def start_proxy():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/stop-proxy/<container_name>', methods=['POST'])
-def stop_proxy(container_name):
-    stop_and_remove_container(container_name)
-    return jsonify({"message": f"Proxy container {container_name} stopped, removed, and deleted from the pool."})
+@app.route('/stop-proxy', methods=['POST'])
+def stop_proxy():
+    """
+    Stop and remove a specific proxy container or all proxies if no container is specified.
+    Request body can include a container_name to stop and remove that container,
+    or leave it blank to stop and remove all proxy containers.
+    """
+    data = request.get_json()
+    container_name = data.get('container_name')
+
+    try:
+        if container_name:
+            # Stop and remove the specific container
+            stop_and_remove_container(container_name)
+            return jsonify({"message": f"Proxy container '{container_name}' stopped, removed, and deleted from the pool."}), 200
+        else:
+            # Stop all proxy containers if no specific container is provided
+            stop_all_proxies()
+            return jsonify({"message": "All proxy containers have been stopped, removed, and deleted from the pool."}), 200
+    except ContainerNotFoundException as e:
+        # Handle case where container is not found
+        return jsonify({"error": str(e), "message": f"Container '{container_name}' not found."}), 404
+    except Exception as e:
+        # Handle any unexpected errors
+        return jsonify({"error": "An error occurred while stopping the proxy.", "details": str(e)}), 500
 
 @app.route('/list-proxies', methods=['GET'])
 def list_proxies():
+    # Fetch the container pool from the database
+    container_pool = get_container_pool()
+
     if not container_pool:
         return jsonify({"message": "No active proxy containers."})
-    
-    # Serialize container pool information
+
+    # Serialize the container pool information
     serialized_pool = [
         {
-            "container_id": container_info["id"],
-            "container_name": container_info["name"],
-            "country": container_info["country"],
-            "external_port": container_info["port"]
+            "container_name": container_info[0],  # container_name from the first column
+            "country": container_info[1],         # country from the second column
+            "external_port": container_info[2]    # external_port from the third column
         }
         for container_info in container_pool
     ]
