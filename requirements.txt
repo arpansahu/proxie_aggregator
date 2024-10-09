@@ -35,7 +35,7 @@ cryptography==42.0.4
 daphne==3.0.2
 Deprecated==1.2.13
 dj-database-url==0.5.0
-Django==4.0.3
+Django==4.2.16
 django-braces==1.15.0
 django-celery-beat==2.2.1
 django-celery-results==2.2.0
